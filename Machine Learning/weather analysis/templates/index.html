@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0,maximum-scale=1">
+    <title>Weather Forecast</title>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- Loading third party fonts -->
+    <link href="http://fonts.googleapis.com/css?family=Roboto:300,400,700|" rel="stylesheet" type="text/css">
+    <link href="fonts/font-awesome.min.css" rel="stylesheet" type="text/css">
+
+    <!-- Loading main css file -->
+    <link rel= "stylesheet" type= "text/css" href= "{{ url_for('static',filename='styles/styles.css') }}">
+</head>
+<body>
+    <div class="site-content">
+        <div class="site-header">
+            <div class="container">
+                <a href="index.html" class="branding">
+                    <img src="../static/images/logo.png" alt="" class="logo">
+                    <div class="logo-type">
+                        <h1 class="site-title">Weather Analysis</h1>
+                        <small class="site-description">By Amulya G</small>
+                    </div>
+                </a>
+
+                <!-- Default snippet for navigation -->
+                <div class="main-navigation">
+                    <button type="button" class="menu-toggle"><i class="fa fa-bars"></i></button>
+                    <ul class="menu">
+                        <li class="menu-item current-menu-item"><a href="index.html">Home</a></li>
+                    </ul> <!-- .menu -->
+                </div> <!-- .main-navigation -->
+
+                <div class="mobile-navigation"></div>
+            </div>
+        </div> <!-- .site-header -->
+
+        <div class="forecast-table">
+            <div class="container">
+                <div class="forecast-container">
+                    <!-- Forecast Table with Dynamic Data -->
+                    {% for prediction in predictions %}
+                    <div class="forecast">
+                        <div class="forecast-header" >
+                            <div class="day">{{ prediction.DATE.strftime('%A') }}, {{ prediction.MONTH_NAME}} {{ prediction.DATE.strftime('%d')}}</div>
+                        </div> <!-- .forecast-header -->
+                        <div class="forecast-content">
+                            <div class="forecast-icon">
+                                <img src="../static/images/icons/icon-3.svg" alt="" width=48>
+                            </div>
+                            <div class="degree" span id="tmax">{{ prediction.TMAX }}<sup>o</sup>C</div>
+                            <div class="tmin" span id="tmin">{{ prediction.TMIN }}<sup>o</sup>C</div>
+                            <span><img src="../static/images/icon-umberella.png" alt="" class="img-padding">{{ prediction.PRCP }} mm</span>
+                            <span><img src="../static/images/icon-wind.png" alt="" class="img-padding">{{ prediction.AWND }} m/h</span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        <div class="temperature-chart">
+            <canvas id="temperatureChart"></canvas>
+        </div>
+        <div class="wind-chart">
+            <canvas id="windChart"></canvas>
+        </div>
+    <footer class="site-footer">
+        <div class="container">
+            <div class="row">
+                <div class="col-md-8"><div>
+                <div class="col-md-3 col-md-offset-1"><div>
+            </div>
+        </div>
+    </footer> <!-- .site-footer -->
+    <script>
+        function generateHourlyTemperatures(tmin, tmax) {
+            const hours = [];
+            const temperatures = [];
+            const numberOfHours = 24;
+            const step = 2 * Math.PI / numberOfHours;
+            const center = (tmin + tmax) / 2;
+            const amplitude = (tmax - tmin) / 2;
+            const phaseShift = (225/180)*Math.PI
+
+            for (let i = 0; i < numberOfHours; i++) {
+                hours.push(i);
+                const phase = i * step + phaseShift;
+                const temp = center + amplitude * Math.sin(phase) + (Math.random() * 0.4 - 0.2);
+                temperatures.push(temp);
+            }
+            return { hours, temperatures };
+        }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const tmin = parseFloat(document.getElementById('tmin').textContent); // Get TMIN from HTML
+        const tmax = parseFloat(document.getElementById('tmax').textContent); // Get TMAX from HTML
+
+        const { hours, temperatures } = generateHourlyTemperatures(tmin, tmax);
+
+        const ctx = document.getElementById('temperatureChart').getContext('2d');
+        const gradient = ctx.createLinearGradient(0, 0, 0, 350);
+        gradient.addColorStop(0, 'rgba(75, 192, 192, 0.6)');
+        gradient.addColorStop(1, 'rgba(75, 192, 192, 0)');
+
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: hours.map(hour => hour.toString().padStart(2, '0') + ':00'), // Format hours from 00:00 to 23:00
+                datasets: [{
+                    label: 'Temperature (°C)',
+                    data: temperatures,
+                    borderColor: 'rgba(75, 192, 192, 1)',
+                    backgroundColor: gradient,
+                    fill: true,
+                    lineTension: 0.1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false, // Allows custom height
+                plugins: {
+                    legend: {
+                        position: 'top', // Position the legend at the top
+                    },
+                    title: {
+                        display: true,
+                        text: 'Hourly Temperature',
+                        align: 'center', // Center the title
+                        padding: {
+                            top: 10,
+                            bottom: 10
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Hour'
+                        },
+                        ticks: {
+                            callback: function(value) {
+                                return value.toString().padStart(2, '0') + ':00'; // Ensure hour format
+                            }
+                        }
+                    },
+                    y: {
+                        title: {
+                            display: true,
+                            text: 'Temperature (°C)'
+                        },
+                        ticks: {
+                            beginAtZero: false
+                        }
+                    }
+                }
+            }
+        });
+    });
+    document.addEventListener('DOMContentLoaded', function() {
+
+        const prediction = {{predictions | tojson }};
+        const windSpeedData = prediction.map(prediction => prediction.AWND);
+        const date = prediction.map(prediction => {
+            const dateObj = new Date(prediction.DATE);
+            const day = dateObj.getDate();
+            const month = dateObj.toLocaleString('default', { month: 'short' });
+            return `${day} ${month}`;
+        });
+        const ctx = document.getElementById('windChart').getContext('2d');
+        const gradient = ctx.createLinearGradient(0, 0, 0, 350);
+        gradient.addColorStop(0, 'rgba(255, 191, 0, 0.8)');
+        gradient.addColorStop(1, 'rgba(155, 191, 0, 0)');
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: date,
+                datasets: [{
+                    label: 'Wind Speed (m/h)',
+                    data: windSpeedData,
+                    borderColor: 'rgba(191, 191, 0, 1)',
+                    backgroundColor: gradient,
+                    borderWidth: 1,
+                    fill: true,
+                    lineTension: 0.1,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: false,
+                        title: {
+                            display: true,
+                            text: 'Wind Speed (m/h)'
+                        }
+                    },
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Day'
+                        }
+                    }
+               }
+            }
+        });
+    });
+    </script>
+</body>
+</html>
